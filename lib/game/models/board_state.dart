@@ -2,6 +2,20 @@ import 'board_cell.dart';
 import 'bug_color.dart';
 import 'board_piece.dart';
 
+class BoardBigSplit {
+  const BoardBigSplit({required this.bigId, required this.cells});
+
+  final int bigId;
+  final Set<BoardCell> cells;
+}
+
+class BoardClearResult {
+  const BoardClearResult({required this.removed, required this.bigSplits});
+
+  final List<BoardPiece> removed;
+  final List<BoardBigSplit> bigSplits;
+}
+
 class BoardState {
   BoardState(List<List<BugColor>> columns)
     : columns = _normalizeColorColumns(columns);
@@ -70,6 +84,14 @@ class BoardState {
 
   BoardPiece removeBottom(int column) => columns[column].removeLast();
 
+  BoardPiece removePieceAt(int column, int row) =>
+      columns[column].removeAt(row);
+
+  void insertPieceAt(int column, int row, BoardPiece piece) {
+    final targetRow = row.clamp(0, columns[column].length).toInt();
+    columns[column].insert(targetRow, piece);
+  }
+
   void insertBottom(int column, BugColor color) {
     insertPieceBottom(column, BoardPiece(color));
   }
@@ -92,9 +114,17 @@ class BoardState {
   }
 
   List<BoardPiece> clearCells(Iterable<BoardCell> cells) {
+    return clearCellsWithResult(cells).removed;
+  }
+
+  BoardClearResult clearCellsWithResult(Iterable<BoardCell> cells) {
     final removed = <BoardPiece>[];
     final byColumn = <int, List<int>>{};
-    final expandedCells = _expandCellsForBigSafety(cells.toSet());
+    final clearSet = cells.toSet();
+    final bigCells = _collectBigCells();
+    final directBigIds = _directBigIdsFor(clearSet);
+    final bigSplits = _splitBigsThreatenedBy(clearSet, bigCells, directBigIds);
+    final expandedCells = _expandCellsForDirectBigClears(clearSet, bigCells);
 
     for (final cell in expandedCells) {
       byColumn.putIfAbsent(cell.column, () => <int>[]).add(cell.row);
@@ -110,11 +140,10 @@ class BoardState {
       }
     }
 
-    return removed;
+    return BoardClearResult(removed: removed, bigSplits: bigSplits);
   }
 
-  Set<BoardCell> _expandCellsForBigSafety(Set<BoardCell> cells) {
-    final expanded = Set<BoardCell>.from(cells);
+  Map<int, Set<BoardCell>> _collectBigCells() {
     final bigCells = <int, Set<BoardCell>>{};
 
     for (var column = 0; column < columns.length; column += 1) {
@@ -128,15 +157,31 @@ class BoardState {
       }
     }
 
+    return bigCells;
+  }
+
+  Set<int> _directBigIdsFor(Set<BoardCell> cells) {
+    final directBigIds = <int>{};
     for (final cell in cells) {
       final piece = pieceAt(cell.column, cell.row);
       final bigId = piece?.bigId;
       if (bigId != null) {
-        expanded.addAll(bigCells[bigId] ?? const <BoardCell>{});
+        directBigIds.add(bigId);
       }
     }
+    return directBigIds;
+  }
 
+  List<BoardBigSplit> _splitBigsThreatenedBy(
+    Set<BoardCell> cells,
+    Map<int, Set<BoardCell>> bigCells,
+    Set<int> directBigIds,
+  ) {
+    final bigSplits = <BoardBigSplit>[];
     for (final entry in bigCells.entries) {
+      if (directBigIds.contains(entry.key)) {
+        continue;
+      }
       final big = entry.value;
       final wouldShiftOneSide = cells.any((cell) {
         return big.any(
@@ -144,10 +189,26 @@ class BoardState {
         );
       });
       if (wouldShiftOneSide) {
-        expanded.addAll(big);
+        bigSplits.add(BoardBigSplit(bigId: entry.key, cells: Set.of(big)));
+        for (final cell in big) {
+          final piece = pieceAt(cell.column, cell.row);
+          if (piece != null) {
+            setPiece(cell.column, cell.row, BoardPiece(piece.color));
+          }
+        }
       }
     }
+    return bigSplits;
+  }
 
+  Set<BoardCell> _expandCellsForDirectBigClears(
+    Set<BoardCell> cells,
+    Map<int, Set<BoardCell>> bigCells,
+  ) {
+    final expanded = Set<BoardCell>.from(cells);
+    for (final bigId in _directBigIdsFor(cells)) {
+      expanded.addAll(bigCells[bigId] ?? const <BoardCell>{});
+    }
     return expanded;
   }
 
@@ -189,6 +250,91 @@ class BoardState {
       }
     }
     return cells;
+  }
+
+  bool canDragPieceAt(int column, int row) {
+    final piece = pieceAt(column, row);
+    if (piece == null || !piece.canSwallow) {
+      return false;
+    }
+    if (_wouldShiftBigBugBelow(column, row)) {
+      return false;
+    }
+    if (row == columns[column].length - 1) {
+      return true;
+    }
+    return _hasOpenHorizontalSide(column, row);
+  }
+
+  bool hasGlowMergeMove() {
+    for (var sourceColumn = 0; sourceColumn < columnCount; sourceColumn += 1) {
+      for (
+        var sourceRow = 0;
+        sourceRow < columns[sourceColumn].length;
+        sourceRow += 1
+      ) {
+        final source = pieceAt(sourceColumn, sourceRow);
+        if (source == null ||
+            source.charged ||
+            !canDragPieceAt(sourceColumn, sourceRow)) {
+          continue;
+        }
+
+        for (
+          var targetColumn = 0;
+          targetColumn < columnCount;
+          targetColumn += 1
+        ) {
+          if (targetColumn == sourceColumn || columns[targetColumn].isEmpty) {
+            continue;
+          }
+          final targetRow = columns[targetColumn].length - 1;
+          final target = pieceAt(targetColumn, targetRow);
+          if (target != null &&
+              target.canSwallow &&
+              !target.charged &&
+              target.color == source.color) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  void mergePieceAt({
+    required int sourceColumn,
+    required int sourceRow,
+    required int targetColumn,
+    required int targetRow,
+  }) {
+    final source = removePieceAt(sourceColumn, sourceRow);
+    final adjustedTargetRow =
+        sourceColumn == targetColumn && sourceRow < targetRow
+        ? targetRow - 1
+        : targetRow;
+    setPiece(
+      targetColumn,
+      adjustedTargetRow,
+      BoardPiece(source.color, charged: true),
+    );
+  }
+
+  bool _hasOpenHorizontalSide(int column, int row) {
+    final leftOpen = column > 0 && pieceAt(column - 1, row) == null;
+    final rightOpen =
+        column < columnCount - 1 && pieceAt(column + 1, row) == null;
+    return leftOpen || rightOpen;
+  }
+
+  bool _wouldShiftBigBugBelow(int column, int row) {
+    for (var below = row + 1; below < columns[column].length; below += 1) {
+      if (columns[column][below].isBig) {
+        return true;
+      }
+    }
+    return false;
   }
 
   bool get isEmpty => columns.every((column) => column.isEmpty);

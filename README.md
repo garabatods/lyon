@@ -1,16 +1,14 @@
 # Chameleon Puzzle Demo
 
-Portrait Flutter + Flame prototype for a chameleon/ladybug arcade puzzle game.
+Portrait Flutter + Flame game for a chameleon/ladybug arcade puzzle.
 
-Read `chameleon_codex_md/00_CURRENT_PROJECT_STATE.md` first before making gameplay changes. The older numbered docs are useful historical context, but several original mechanics have changed.
+Read `chameleon_codex_md/00_CURRENT_PROJECT_STATE.md` first before making gameplay changes. The Markdown in this repo describes the current game.
 
 ## Current Gameplay
 
 - 6 x 8 board using `assets/images/board_6x8_empty.png`.
-- Five active bug colors: red, blue, yellow, orange, purple.
-- No color mixing and no green gameplay pieces.
-- Button controls replace mobile gestures: left, swallow, spit, right.
-- Direct drag controls are enabled for quick feel testing.
+- Active bug colors are red, blue, yellow, orange, and purple.
+- Mobile play uses direct drag controls.
 - Non-movable occupied cells are shaded on the board layer to show what cannot be dragged.
 - Ladybugs animate through each color's `anim01`, `anim02`, `anim01`, `anim03` frames.
 - Keyboard debug controls remain.
@@ -35,25 +33,27 @@ Read `chameleon_codex_md/00_CURRENT_PROJECT_STATE.md` first before making gamepl
 - `lib/game/systems/pressure_row_generator.dart` - level-scaled incoming row generation.
 - `lib/game/chameleon_puzzle_game.dart` - main game loop, spawning, scoring, FX.
 - `lib/game/board_layout.dart` - 6x8 board placement and invisible grid alignment.
-- `lib/main.dart` - Flutter overlay HUD, top progress/stars, and button controls.
+- `lib/main.dart` - Flutter overlay HUD, top progress/stars, power bar, and pause UI.
 - `test/mechanics_test.dart` - current rule coverage.
 
 ## Controls
 
 | Input | Action |
 | --- | --- |
-| Left button | Move left; hold repeats |
-| Right button | Move right; hold repeats |
-| Swallow button | Swallow once |
-| Spit button | Spit once |
-| Drag lowest bug | Move it to another column, including overflowing full columns |
-| Drag lowest normal bug onto same-color normal bug | Create a glowing bug |
+| Drag movable bug | Move a lowest bug, or a bug with one open in-board horizontal side, to another column |
+| Drag normal bug onto same-color lowest normal bug | Create a glowing bug |
 | Left / A | Move left |
 | Right / D | Move right |
 | Down / S / J | Swallow |
 | Up / W / Space / Enter / K | Spit |
 | R | Restart current level |
 | 1 / 2 / 3 / 4 | Switch debug level |
+
+## Level Design Safety
+
+Tutorial or limited-board levels that should not be losable through soft-locks must opt into `stuckHelpEnabled`. When an assisted level has no detonations, no available glowing-bug merge, and no usable power-up inventory, the game automatically adds helper ladybugs so the player can continue. Challenge levels should leave this disabled unless help is intentionally part of the design.
+
+Map levels should be designed as readable board patterns, not random color scatters. Start from a visual motif such as mirror pairs, diagonal waves, color islands, rivers, bridges, nests, sprouts, or twin paths, then validate that the motif supports the objective. Each new map level should include `designTags` with `pattern` plus mechanic/style tags like `glow`, `chain`, `big`, `pressure`, `color-focus`, `mirror`, or `diagonal`.
 
 ## Verify
 

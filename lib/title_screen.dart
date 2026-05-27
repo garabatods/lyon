@@ -3,10 +3,24 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'adventure_map_definition.dart';
+import 'adventure_screen.dart';
 import 'game/game_save_store.dart';
+import 'game/levels/demo_levels.dart';
 import 'game/models/game_save.dart';
+import 'game/models/game_mode.dart';
+import 'game/models/level_set_id.dart';
+import 'game/models/player_progress.dart';
+import 'game/player_progress_store.dart';
+import 'tutorial_modal_title.dart';
 
-typedef TitleGameBuilder = Widget Function(GameSave? initialSave);
+typedef TitleGameBuilder =
+    Widget Function(
+      GameSave? initialSave,
+      GameMode mode, {
+      LevelSetId? initialLevelSetId,
+      int? initialLevelIndex,
+    });
 
 const _titleRoot = 'assets/images/title_screen';
 const _designSize = Size(822, 1786);
@@ -23,12 +37,15 @@ class TitleScreen extends StatefulWidget {
 class _TitleScreenState extends State<TitleScreen>
     with TickerProviderStateMixin {
   final _saveStore = GameSaveStore();
+  final _progressStore = PlayerProgressStore();
   late final AnimationController _introController;
   late final AnimationController _ambientController;
 
   GameSave? _save;
+  PlayerProgress _progress = PlayerProgress.initial;
   bool _loadingSave = true;
   bool _launching = false;
+  bool _showTutorialIntro = false;
 
   @override
   void initState() {
@@ -68,7 +85,13 @@ class _TitleScreenState extends State<TitleScreen>
                 );
                 final intro = _introController.value;
                 final menu = _interval(intro, 0.56, 0.82, Curves.easeOutCubic);
-                final canContinue = _save != null && !_loadingSave;
+                final tutorialLocked =
+                    !_loadingSave && !_progress.tutorialCompleted;
+                final continueSave = _continueSave;
+                final canContinue =
+                    continueSave != null &&
+                    !_loadingSave &&
+                    _progress.tutorialCompleted;
 
                 return Stack(
                   fit: StackFit.expand,
@@ -91,10 +114,26 @@ class _TitleScreenState extends State<TitleScreen>
                       placement: placement,
                       progress: menu,
                       canContinue: canContinue,
+                      tutorialLocked: tutorialLocked,
                       launching: _launching,
-                      onPlay: _launchGame,
+                      onPlay: tutorialLocked
+                          ? _openTutorialIntro
+                          : () => _launchGame(),
+                      onAdventure: tutorialLocked
+                          ? _openTutorialIntro
+                          : _openAdventureScreen,
+                      onTimeTrial: tutorialLocked
+                          ? _openTutorialIntro
+                          : () => _launchGame(mode: GameMode.timeTrial),
                       onComingSoon: _showComingSoon,
+                      onLocked: _openTutorialIntro,
+                      onSettings: _debugResetProgress,
                     ),
+                    if (_showTutorialIntro)
+                      _TutorialIntroModal(
+                        progress: menu,
+                        onStart: _startTutorial,
+                      ),
                     _FooterCredit(placement: placement, progress: 1 - menu),
                   ],
                 );
@@ -156,11 +195,13 @@ class _TitleScreenState extends State<TitleScreen>
 
   Future<void> _loadSave() async {
     final save = await _saveStore.load();
+    final progress = await _progressStore.load();
     if (!mounted) {
       return;
     }
     setState(() {
       _save = save;
+      _progress = progress;
       _loadingSave = false;
     });
   }
@@ -177,13 +218,25 @@ class _TitleScreenState extends State<TitleScreen>
     }
   }
 
-  Future<void> _launchGame() async {
+  Future<void> _launchGame({GameMode? mode, LevelSetId? levelSetId}) async {
     if (_launching || _loadingSave) {
       return;
     }
     setState(() => _launching = true);
 
-    final save = _save;
+    final save = mode == null ? _continueSave : null;
+    final nextMode = mode ?? save?.mode ?? GameMode.adventure;
+    final nextLevelSetId =
+        levelSetId ??
+        (nextMode == GameMode.timeTrial || save == null
+            ? LevelSetId.map01
+            : null);
+    final nextLevelIndex =
+        save == null &&
+            nextMode == GameMode.adventure &&
+            nextLevelSetId == LevelSetId.map01
+        ? _latestMap01LevelIndex
+        : null;
     if (save == null) {
       await _saveStore.clear();
     }
@@ -194,7 +247,12 @@ class _TitleScreenState extends State<TitleScreen>
     await Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
         pageBuilder: (_, animation, secondaryAnimation) {
-          return widget.gameBuilder(save);
+          return widget.gameBuilder(
+            save,
+            nextMode,
+            initialLevelSetId: nextLevelSetId,
+            initialLevelIndex: nextLevelIndex,
+          );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
@@ -203,6 +261,101 @@ class _TitleScreenState extends State<TitleScreen>
         reverseTransitionDuration: Duration.zero,
       ),
     );
+  }
+
+  GameSave? get _continueSave {
+    final save = _save;
+    if (save == null) {
+      return null;
+    }
+    if (save.mode != GameMode.adventure ||
+        save.levelSetId != LevelSetId.map01) {
+      return null;
+    }
+    final latestLevelIndex = _latestMap01LevelIndex;
+    if (save.levelIndex < latestLevelIndex) {
+      return null;
+    }
+    return save;
+  }
+
+  int get _latestMap01LevelIndex {
+    return firstAdventureLevelIndex(progress: _progress, levels: map01Levels);
+  }
+
+  Future<void> _openAdventureScreen() async {
+    if (_launching || _loadingSave) {
+      return;
+    }
+    setState(() => _launching = true);
+    final adventureSave = _continueSave;
+
+    if (!mounted) {
+      return;
+    }
+    await Navigator.of(context).pushReplacement(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return AdventureScreen(
+            activeSave: adventureSave,
+            progress: _progress,
+            gameBuilder: widget.gameBuilder,
+            homeBuilder: (_) => TitleScreen(gameBuilder: widget.gameBuilder),
+          );
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 240),
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+
+  Future<void> _startTutorial() async {
+    if (_launching || _loadingSave) {
+      return;
+    }
+    await _progressStore.save(_progress.markTutorialIntroSeen());
+    if (!mounted) {
+      return;
+    }
+    await _launchGame(
+      mode: GameMode.adventure,
+      levelSetId: LevelSetId.tutorial,
+    );
+  }
+
+  Future<void> _debugResetProgress() async {
+    if (_launching || _loadingSave) {
+      return;
+    }
+    await _saveStore.clear();
+    await _progressStore.clear();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _save = null;
+      _progress = PlayerProgress.initial;
+      _showTutorialIntro = false;
+    });
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Debug reset: tutorial and saves cleared'),
+          duration: Duration(milliseconds: 1200),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  void _openTutorialIntro() {
+    if (_launching || _loadingSave) {
+      return;
+    }
+    setState(() => _showTutorialIntro = true);
   }
 
   void _showComingSoon() {
@@ -223,17 +376,27 @@ class _MenuLayer extends StatelessWidget {
     required this.placement,
     required this.progress,
     required this.canContinue,
+    required this.tutorialLocked,
     required this.launching,
     required this.onPlay,
+    required this.onAdventure,
+    required this.onTimeTrial,
     required this.onComingSoon,
+    required this.onLocked,
+    required this.onSettings,
   });
 
   final _CoverPlacement placement;
   final double progress;
   final bool canContinue;
+  final bool tutorialLocked;
   final bool launching;
   final VoidCallback onPlay;
+  final VoidCallback onAdventure;
+  final VoidCallback onTimeTrial;
   final VoidCallback onComingSoon;
+  final VoidCallback onLocked;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -263,7 +426,7 @@ class _MenuLayer extends StatelessWidget {
                 placement: placement,
                 rect: const Rect.fromLTWH(674, 82, 132, 130),
                 asset: '$_titleRoot/title_settings.png',
-                onTap: onComingSoon,
+                onTap: onSettings,
               ),
               _TitleImageButton(
                 placement: placement,
@@ -283,25 +446,29 @@ class _MenuLayer extends StatelessWidget {
                 placement: placement,
                 rect: const Rect.fromLTWH(116, 1246, 284, 216),
                 asset: '$_titleRoot/adventure.png',
-                onTap: onComingSoon,
+                onTap: onAdventure,
+                locked: tutorialLocked,
               ),
               _TitleImageButton(
                 placement: placement,
                 rect: const Rect.fromLTWH(422, 1246, 284, 216),
                 asset: '$_titleRoot/time_trial.png',
-                onTap: onComingSoon,
+                onTap: onTimeTrial,
+                locked: tutorialLocked,
               ),
               _TitleImageButton(
                 placement: placement,
                 rect: const Rect.fromLTWH(116, 1488, 285, 216),
                 asset: '$_titleRoot/achievements.png',
-                onTap: onComingSoon,
+                onTap: tutorialLocked ? onLocked : onComingSoon,
+                locked: tutorialLocked,
               ),
               _TitleImageButton(
                 placement: placement,
                 rect: const Rect.fromLTWH(419, 1488, 291, 216),
                 asset: '$_titleRoot/daily.png',
-                onTap: onComingSoon,
+                onTap: tutorialLocked ? onLocked : onComingSoon,
+                locked: tutorialLocked,
               ),
             ],
           ),
@@ -377,6 +544,135 @@ class _LogoLayer extends StatelessWidget {
   }
 }
 
+class _TutorialIntroModal extends StatelessWidget {
+  const _TutorialIntroModal({required this.progress, required this.onStart});
+
+  final double progress;
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {},
+        child: ColoredBox(
+          color: Color.fromRGBO(0, 0, 0, 0.68 * progress.clamp(0, 1)),
+          child: Center(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = (constraints.maxWidth - 18).clamp(300.0, 419.0);
+                return SizedBox(
+                  width: width,
+                  child: AspectRatio(
+                    aspectRatio: 419 / 570,
+                    child: LayoutBuilder(
+                      builder: (context, modalConstraints) {
+                        final size = Size(
+                          modalConstraints.maxWidth,
+                          modalConstraints.maxHeight,
+                        );
+                        double sx(double value) => size.width * value / 419;
+                        double sy(double value) => size.height * value / 570;
+
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(
+                              child: Image.asset(
+                                'assets/images/tutorial/tutorial_modal_frame.png',
+                                fit: BoxFit.fill,
+                                filterQuality: FilterQuality.none,
+                              ),
+                            ),
+                            TutorialModalTitle(
+                              text: 'TUTORIAL',
+                              modalSize: size,
+                            ),
+                            TutorialModalBodyTitle(
+                              text: 'LEARN\nTHE BASICS',
+                              modalSize: size,
+                              rect: const Rect.fromLTWH(48, 162, 323, 138),
+                            ),
+                            TutorialModalDescription(
+                              text:
+                                  'You will play six short tutorial levels first. After that, Adventure and Time Trial unlock.',
+                              modalSize: size,
+                              rect: const Rect.fromLTWH(64, 318, 291, 0),
+                              maxLines: 4,
+                            ),
+                            TutorialModalDescription(
+                              text:
+                                  'Finish Level 6 to unlock Adventure and Time Trial.',
+                              modalSize: size,
+                              rect: const Rect.fromLTWH(60, 424, 299, 0),
+                              maxLines: 2,
+                            ),
+                            Positioned(
+                              left: sx(172),
+                              top: sy(492),
+                              width: sx(75),
+                              height: sy(72),
+                              child: _TitleModalCtaButton(
+                                asset: 'assets/images/play_cta.png',
+                                onPressed: onStart,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TitleModalCtaButton extends StatefulWidget {
+  const _TitleModalCtaButton({required this.asset, required this.onPressed});
+
+  final String asset;
+  final VoidCallback onPressed;
+
+  @override
+  State<_TitleModalCtaButton> createState() => _TitleModalCtaButtonState();
+}
+
+class _TitleModalCtaButtonState extends State<_TitleModalCtaButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) => setState(() => _pressed = true),
+      onPointerUp: (_) {
+        setState(() => _pressed = false);
+        widget.onPressed();
+      },
+      onPointerCancel: (_) {
+        if (mounted) {
+          setState(() => _pressed = false);
+        }
+      },
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 55),
+        scale: _pressed ? 0.94 : 1,
+        child: Image.asset(
+          widget.asset,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.none,
+        ),
+      ),
+    );
+  }
+}
+
 class _FxSprite extends StatelessWidget {
   const _FxSprite({
     required this.placement,
@@ -430,6 +726,7 @@ class _TitleImageButton extends StatefulWidget {
     required this.asset,
     required this.onTap,
     this.caption,
+    this.locked = false,
   });
 
   final _CoverPlacement placement;
@@ -437,6 +734,7 @@ class _TitleImageButton extends StatefulWidget {
   final String asset;
   final VoidCallback onTap;
   final String? caption;
+  final bool locked;
 
   @override
   State<_TitleImageButton> createState() => _TitleImageButtonState();
@@ -472,6 +770,34 @@ class _TitleImageButtonState extends State<_TitleImageButton> {
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.none,
                   ),
+                  if (widget.locked)
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0x99000000),
+                          borderRadius: BorderRadius.circular(
+                            constraints.maxWidth * 0.14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (widget.locked)
+                    Align(
+                      alignment: Alignment.center,
+                      child: SizedBox.square(
+                        dimension:
+                            math.min(
+                              constraints.maxWidth,
+                              constraints.maxHeight,
+                            ) *
+                            0.48,
+                        child: Image.asset(
+                          'assets/images/tutorial/tutorial_lock_badge.png',
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.none,
+                        ),
+                      ),
+                    ),
                   if (widget.caption != null)
                     Positioned(
                       left: constraints.maxWidth * 0.22,

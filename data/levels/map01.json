@@ -1,0 +1,144 @@
+{
+  "id": "map01",
+  "name": "Map 01",
+  "levels": [
+    {
+      "id": "map01_grove_sorting",
+      "name": "Grove Sorting",
+      "startColumn": 2,
+      "columns": ["rby", "byr", "yrb", "yrb", "byr", "rby"],
+      "pressure": { "enabled": false, "minimumBugCount": 0 },
+      "objectives": [
+        { "type": "makeGlow", "target": 4 },
+        { "type": "clearTotal", "target": 16 }
+      ],
+      "solverMaxMoves": 20,
+      "designTags": ["intro", "glow", "mirror", "pattern"],
+      "scoreTarget": 560,
+      "stars": { "threeStarElapsed": 60, "twoStarElapsed": 90 }
+    },
+    {
+      "id": "map01_color_clusters",
+      "name": "Color Clusters",
+      "startColumn": 2,
+      "columns": ["rrby", "rbbo", "byyo", "yoyb", "obby", "oorr"],
+      "pressure": { "enabled": false, "minimumBugCount": 0 },
+      "objectives": [
+        { "type": "makeGlow", "target": 4 },
+        { "type": "clearAll" }
+      ],
+      "solverMaxMoves": 22,
+      "designTags": ["clear", "clusters", "islands", "pattern"],
+      "scoreTarget": 700,
+      "stars": { "threeStarElapsed": 70, "twoStarElapsed": 100 }
+    },
+    {
+      "id": "map01_pressure_sprouts",
+      "name": "Pressure Sprouts",
+      "startColumn": 3,
+      "columns": ["rby", "yrb", "byr", "rby", "yrb", "byr"],
+      "pressure": { "enabled": true, "refillIntervalSeconds": 12, "minimumBugCount": 14 },
+      "objectives": [
+        { "type": "makeGlow", "target": 5 },
+        { "type": "clearTotal", "target": 22 }
+      ],
+      "solverMaxMoves": 24,
+      "designTags": ["pressure", "sprouts", "vertical", "pattern"],
+      "scoreTarget": 760,
+      "stars": { "threeStarElapsed": 72, "twoStarElapsed": 105 }
+    },
+    {
+      "id": "map01_blue_orchard",
+      "name": "Blue Orchard",
+      "startColumn": 1,
+      "columns": ["bbyb", "bbro", "byyr", "opbb", "rbyb", "ybob"],
+      "pressure": { "enabled": true, "refillIntervalSeconds": 11.5, "minimumBugCount": 16 },
+      "objectives": [
+        { "type": "clearColor", "color": "blue", "target": 10 },
+        { "type": "clearTotal", "target": 22 }
+      ],
+      "solverMaxMoves": 24,
+      "designTags": ["color-focus", "blue", "river", "pattern"],
+      "scoreTarget": 840,
+      "stars": { "threeStarElapsed": 75, "twoStarElapsed": 108 }
+    },
+    {
+      "id": "map01_chain_bridge",
+      "name": "Chain Bridge",
+      "startColumn": 3,
+      "columns": ["ybrrby", "pyrbo", "orrpy", "oyrpb", "pyrbo", "ybrrby"],
+      "pressure": { "enabled": false, "minimumBugCount": 0 },
+      "objectives": [
+        { "type": "reachCascade", "target": 2 },
+        { "type": "clearTotal", "target": 24 }
+      ],
+      "solverMaxMoves": 24,
+      "designTags": ["chain", "bridge", "symmetric", "pattern"],
+      "scoreTarget": 900,
+      "stars": { "threeStarElapsed": 80, "twoStarElapsed": 112 }
+    },
+    {
+      "id": "map01_tall_grass_rush",
+      "name": "Tall Grass Rush",
+      "startColumn": 2,
+      "columns": ["rryop", "rrbpo", "byopr", "opryb", "prybo", "yoprb"],
+      "pressure": { "enabled": true, "refillIntervalSeconds": 10.5, "minimumBugCount": 18 },
+      "objectives": [
+        { "type": "clearBig", "target": 1 },
+        { "type": "clearTotal", "target": 30 }
+      ],
+      "solverMaxMoves": 26,
+      "designTags": ["pressure", "wave", "diagonal", "pattern"],
+      "scoreTarget": 980,
+      "stars": { "threeStarElapsed": 85, "twoStarElapsed": 118 }
+    },
+    {
+      "id": "map01_big_bug_nest",
+      "name": "BIG Bug Nest",
+      "startColumn": 4,
+      "columns": ["ooby", "oory", "bpor", "yobr", "royp", "pbyo"],
+      "pressure": { "enabled": false, "minimumBugCount": 0 },
+      "objectives": [
+        { "type": "clearBig", "target": 1 },
+        { "type": "makeGlow", "target": 3 },
+        { "type": "clearTotal", "target": 20 }
+      ],
+      "solverMaxMoves": 24,
+      "designTags": ["big", "nest", "orange", "pattern"],
+      "scoreTarget": 1040,
+      "stars": { "threeStarElapsed": 85, "twoStarElapsed": 115 }
+    },
+    {
+      "id": "map01_twin_paths",
+      "name": "Twin Paths",
+      "startColumn": 3,
+      "columns": ["pbyro", "ypbro", "ppryb", "ppryb", "ypbro", "pbyro"],
+      "pressure": { "enabled": true, "refillIntervalSeconds": 9.75, "minimumBugCount": 20 },
+      "objectives": [
+        { "type": "reachCascade", "target": 2 },
+        { "type": "clearBig", "target": 1 },
+        { "type": "clearColor", "color": "purple", "target": 10 }
+      ],
+      "solverMaxMoves": 28,
+      "designTags": ["chain", "purple", "twin-paths", "mirror", "pattern"],
+      "scoreTarget": 1120,
+      "stars": { "threeStarElapsed": 90, "twoStarElapsed": 122 }
+    },
+    {
+      "id": "map01_canopy_trial",
+      "name": "Canopy Trial",
+      "startColumn": 3,
+      "columns": ["oobypr", "oorybp", "bpryo", "yprbo", "roypb", "pbyor"],
+      "pressure": { "enabled": true, "refillIntervalSeconds": 9.25, "minimumBugCount": 22 },
+      "objectives": [
+        { "type": "clearBig", "target": 1 },
+        { "type": "makeGlow", "target": 4 },
+        { "type": "clearTotal", "target": 32 }
+      ],
+      "solverMaxMoves": 30,
+      "designTags": ["pressure", "big", "canopy", "diagonal", "pattern"],
+      "scoreTarget": 1200,
+      "stars": { "threeStarElapsed": 100, "twoStarElapsed": 130 }
+    }
+  ]
+}

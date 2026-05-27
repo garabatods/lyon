@@ -6,14 +6,8 @@ class GameAssets {
   static const fxPop = 'fx_pop.png';
   static const fxSparkle = 'fx_sparkle.png';
   static const fxComboBurst = 'fx_combo_burst.png';
-  static const leftButtonDefault = 'Left_btn_default.png';
-  static const leftButtonPressed = 'Left_btn_pressed.png';
-  static const rightButtonDefault = 'Right_btn_default.png';
-  static const rightButtonPressed = 'Right_btn_pressed.png';
-  static const swallowButtonDefault = 'Swallow_btn_default.png';
-  static const swallowButtonPressed = 'Swallow_btn_pressed.png';
-  static const spitButtonDefault = 'Spit_btn_default.png';
-  static const spitButtonPressed = 'Spit_btn_pressed.png';
+  static const tutorialHandRight = 'tutorial/pointHand_Right.png';
+  static const tutorialHandLeft = 'tutorial/pointHand_Left.png';
 
   static String ladybug(BugColor color) => 'ladybug_${color.name}.png';
 
@@ -47,16 +41,10 @@ class GameAssets {
       fxPop,
       fxSparkle,
       fxComboBurst,
+      tutorialHandRight,
+      tutorialHandLeft,
       'ui_panel_small.png',
       'ui_panel_wide.png',
-      leftButtonDefault,
-      leftButtonPressed,
-      rightButtonDefault,
-      rightButtonPressed,
-      swallowButtonDefault,
-      swallowButtonPressed,
-      spitButtonDefault,
-      spitButtonPressed,
       for (final color in BugColor.active) ladybug(color),
       for (final color in BugColor.active) ...[
         ladybugFrame(color, 1),

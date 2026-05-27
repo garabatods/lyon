@@ -1,4 +1,5 @@
 import '../models/board_cell.dart';
+import '../models/board_piece.dart';
 import '../models/board_state.dart';
 import '../models/bug_color.dart';
 
@@ -22,6 +23,8 @@ class BigBugPromotion {
 }
 
 class MatchSystem {
+  static const int minimumDetonationGroupSize = 3;
+
   List<Set<BoardCell>> findConnectedGroups(BoardState board) {
     final visited = <BoardCell>{};
     final groups = <Set<BoardCell>>[];
@@ -62,13 +65,98 @@ class MatchSystem {
 
   List<Set<BoardCell>> findDetonations(BoardState board) {
     return findConnectedGroups(board).where((group) {
-      if (group.length < 2) {
+      if (group.length < minimumDetonationGroupSize) {
         return false;
       }
       return group.any(
         (cell) => board.pieceAt(cell.column, cell.row)?.charged ?? false,
       );
     }).toList();
+  }
+
+  bool hasProgressMove(BoardState board) {
+    if (findDetonations(board).isNotEmpty) {
+      return true;
+    }
+    if (board.hasGlowMergeMove()) {
+      return true;
+    }
+    return _hasDetonatingDragMove(board);
+  }
+
+  bool _hasDetonatingDragMove(BoardState board) {
+    for (
+      var sourceColumn = 0;
+      sourceColumn < BoardState.columnCount;
+      sourceColumn += 1
+    ) {
+      for (
+        var sourceRow = 0;
+        sourceRow < board.columns[sourceColumn].length;
+        sourceRow += 1
+      ) {
+        final source = board.pieceAt(sourceColumn, sourceRow);
+        if (source == null || !board.canDragPieceAt(sourceColumn, sourceRow)) {
+          continue;
+        }
+
+        for (
+          var destination = 0;
+          destination < BoardState.columnCount;
+          destination += 1
+        ) {
+          if (destination == sourceColumn) {
+            continue;
+          }
+          if (_dragWouldDetonate(
+            board,
+            source: source,
+            sourceColumn: sourceColumn,
+            sourceRow: sourceRow,
+            destination: destination,
+          )) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  bool _dragWouldDetonate(
+    BoardState board, {
+    required BoardPiece source,
+    required int sourceColumn,
+    required int sourceRow,
+    required int destination,
+  }) {
+    final mergeTargetRow = board.columns[destination].length - 1;
+    final mergeTarget = board.pieceAt(destination, mergeTargetRow);
+    final canMerge =
+        mergeTarget != null &&
+        mergeTarget.canSwallow &&
+        !mergeTarget.charged &&
+        !source.charged &&
+        mergeTarget.color == source.color;
+
+    final candidate = board.copy();
+    if (canMerge) {
+      candidate.mergePieceAt(
+        sourceColumn: sourceColumn,
+        sourceRow: sourceRow,
+        targetColumn: destination,
+        targetRow: mergeTargetRow,
+      );
+    } else {
+      final moved = candidate.removePieceAt(sourceColumn, sourceRow);
+      candidate.insertPieceBottom(destination, moved);
+      if (candidate.columns[destination].length > BoardState.rowCount) {
+        candidate.clearCells({BoardCell(destination, 0)});
+      }
+    }
+
+    return findDetonations(candidate).isNotEmpty;
   }
 
   List<BigBugPromotion> findBigPromotions(BoardState board) {

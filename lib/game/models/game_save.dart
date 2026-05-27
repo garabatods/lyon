@@ -4,11 +4,16 @@ import 'board_piece.dart';
 import 'board_state.dart';
 import 'bug_color.dart';
 import 'chameleon_state.dart';
+import 'game_mode.dart';
+import 'level_set_id.dart';
+import 'objective_progress.dart';
 import 'power_up.dart';
 
 class GameSave {
   const GameSave({
+    required this.levelSetId,
     required this.levelIndex,
+    required this.mode,
     required this.columns,
     required this.chameleon,
     required this.score,
@@ -19,6 +24,7 @@ class GameSave {
     required this.comboRemaining,
     required this.danger,
     required this.powerCounts,
+    required this.objectiveProgress,
     required this.timeRemaining,
     required this.refillTimer,
     required this.facingRight,
@@ -26,8 +32,11 @@ class GameSave {
   });
 
   static const currentVersion = 1;
+  static const _legacyRequiredTutorialLevels = 6;
 
+  final LevelSetId levelSetId;
   final int levelIndex;
+  final GameMode mode;
   final List<List<BoardPiece>> columns;
   final ChameleonState chameleon;
   final int score;
@@ -38,6 +47,7 @@ class GameSave {
   final double comboRemaining;
   final int danger;
   final Map<PowerUpType, int> powerCounts;
+  final ObjectiveProgress objectiveProgress;
   final double timeRemaining;
   final double refillTimer;
   final bool facingRight;
@@ -50,7 +60,9 @@ class GameSave {
   Map<String, Object?> toJson() {
     return {
       'version': currentVersion,
+      'levelSetId': levelSetId.name,
       'levelIndex': levelIndex,
+      'mode': mode.name,
       'columns': [
         for (final column in columns)
           [for (final piece in column) _pieceToJson(piece)],
@@ -71,6 +83,7 @@ class GameSave {
       'powerCounts': {
         for (final entry in powerCounts.entries) entry.key.name: entry.value,
       },
+      'objectiveProgress': objectiveProgress.toJson(),
       'timeRemaining': timeRemaining,
       'refillTimer': refillTimer,
       'facingRight': facingRight,
@@ -155,6 +168,13 @@ class GameSave {
       }
     }
 
+    final mode =
+        _enumByName(GameMode.values, json['mode']) ?? GameMode.timeTrial;
+    final objectiveProgressJson = json['objectiveProgress'];
+    final objectiveProgress = objectiveProgressJson is Map
+        ? ObjectiveProgress.fromJson(objectiveProgressJson)
+        : ObjectiveProgress.empty;
+
     final score = _asInt(json['score']);
     final highestCascade = _asInt(json['highestCascade']);
     final currentArcadeLevel = _asInt(json['currentArcadeLevel']);
@@ -181,8 +201,25 @@ class GameSave {
       return null;
     }
 
+    final rawLevelIndex = (_asInt(json['levelIndex']) ?? 0)
+        .clamp(0, 999)
+        .toInt();
+    final decodedLevelSet = _enumByName(LevelSetId.values, json['levelSetId']);
+    final levelSetId =
+        decodedLevelSet ??
+        (rawLevelIndex < _legacyRequiredTutorialLevels
+            ? LevelSetId.tutorial
+            : LevelSetId.map01);
+    final levelIndex =
+        decodedLevelSet == null &&
+            rawLevelIndex >= _legacyRequiredTutorialLevels
+        ? rawLevelIndex - _legacyRequiredTutorialLevels
+        : rawLevelIndex;
+
     return GameSave(
-      levelIndex: (_asInt(json['levelIndex']) ?? 0).clamp(0, 999).toInt(),
+      levelSetId: levelSetId,
+      levelIndex: levelIndex,
+      mode: mode,
       columns: columns,
       chameleon: ChameleonState(
         columnIndex: columnIndex,
@@ -198,6 +235,7 @@ class GameSave {
       comboRemaining: comboRemaining.clamp(0, 30).toDouble(),
       danger: danger.clamp(0, 99).toInt(),
       powerCounts: powerCounts,
+      objectiveProgress: objectiveProgress,
       timeRemaining: timeRemaining.clamp(0, 180).toDouble(),
       refillTimer: refillTimer.clamp(0, 30).toDouble(),
       facingRight: facingRight,

@@ -59,6 +59,9 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/tutorial/
+    - assets/images/adventure/
+    - assets/images/adventure/maps/jungle/
     - assets/images/NLC_intro/bg_stars.png
     - assets/images/NLC_intro/logo_games.png
     - assets/images/NLC_intro/logo_subtitle.png

@@ -5,9 +5,8 @@ This document captures the intended power-up design for the current LYON / Chame
 ## Current Gameplay Context
 
 - The player now moves ladybugs directly by drag.
-- Bottom directional / swallow / spit buttons are legacy controls and should be replaced.
+- The bottom HUD is planned for power-up slots.
 - The chameleon should remain as a cute helper / mascot, not as the main control method.
-- Bottom HUD should become power-up slots.
 - Early levels should start with only one usable power-up slot. The other two slots should be visible but locked, then unlock through tutorial progression.
 - The top HUD progress bar should represent level progress, most likely score progress toward level completion.
 - Stars should represent performance / reward tier, not separate collectibles.
@@ -114,7 +113,7 @@ Asset strategy:
 
 ## Bottom HUD Plan
 
-Replace legacy controls with three power-up slots.
+Use three power-up slots in the bottom HUD.
 
 Recommended early layout:
 
@@ -184,4 +183,3 @@ Rarity mapping:
   - Berry / Pollen / Water behavior around BIG bugs should be implemented intentionally, not accidentally.
   - If uncertain, start conservatively and preserve BIG bugs unless design says otherwise.
 - Add tests for each power effect before tuning visuals deeply.
-
